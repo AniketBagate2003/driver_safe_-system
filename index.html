@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smoking Detection AI</title>
+    <!-- Use a modern Google font -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); 
+            color: #ffffff; 
+            margin: 0; 
+            padding: 0; 
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header { 
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4); 
+            backdrop-filter: blur(10px);
+            padding: 20px 0; 
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        h1 { 
+            margin: 0; 
+            font-weight: 800; 
+            font-size: 2.5em; 
+            letter-spacing: 1px; 
+            text-transform: uppercase; 
+            background: -webkit-linear-gradient(#f12711, #f5af19); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent;
+        }
+        h2 { 
+            font-weight: 300; 
+            font-size: 1.2em; 
+            color: #ccc; 
+            margin-top: 5px; 
+        }
+        .dashboard { 
+            margin: 40px auto; 
+            width: 90%; 
+            max-width: 900px; 
+            background: rgba(255, 255, 255, 0.05); 
+            padding: 30px; 
+            border-radius: 20px; 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); 
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            text-align: center;
+            position: relative;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            border: 2px solid rgba(255,255,255,0.1);
+            background: #000;
+            min-height: 480px;
+        }
+        img { 
+            width: 100%; 
+            display: block; 
+        }
+        
+        /* 🔥 THE WARNING POPUP STYLING 🔥 */
+        #warning-popup {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(220, 20, 60, 0.95);
+            color: white;
+            padding: 40px 60px;
+            font-size: 2.5em;
+            font-weight: 800;
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(255, 0, 0, 0.8);
+            z-index: 9999;
+            text-transform: uppercase;
+            text-align: center;
+            border: 4px solid #fff;
+            animation: pulse-alert 0.4s infinite alternate;
+        }
+        
+        @keyframes pulse-alert {
+            0% { transform: translate(-50%, -50%) scale(0.95); box-shadow: 0 0 20px rgba(255,0,0,0.8); }
+            100% { transform: translate(-50%, -50%) scale(1.05); box-shadow: 0 0 80px rgba(255,0,0,1); }
+        }
+
+        .status-bar {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #4CAF50;
+        }
+        .pulse {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+            animation: pulse-animation 2s infinite;
+        }
+        @keyframes pulse-animation {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+        .system-info {
+            font-size: 0.9em;
+            color: #aaa;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>AI Driver Guardian</h1>
+        <h2>Real-Time Driver Distraction Monitoring</h2>
+    </header>
+    <div class="dashboard">
+        <!-- 🔴 THE WARNING POPUP HTML 🔴 -->
+        <div id="warning-popup">
+            ⚠️ WARNING! <br> 
+            <span style="font-size: 0.5em; font-weight: 400;">SMOKING ACTION DETECTED</span>
+        </div>
+
+        <div class="video-container">
+            <!-- This image tag is linked to the flask video stream endpoint -->
+            <img src="{{ url_for('video_feed') }}" alt="Live Camera Initializing...">
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="pulse"></div>
+                System Active & Monitoring
+            </div>
+            <div class="system-info">
+                Model: MediaPipe + YOLOv8 Node<br>
+                Latency: Real-Time / ~30 FPS<br>
+                <span style="color: #f5af19; font-size: 0.85em;">*Click anywhere on page to enable Audio Alerts</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🟢 JAVASCRIPT TO POLL FOR SMOKING STATUS 🟢 -->
+    <script>
+        // Set up AudioContext for the beep sound
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+        let lastBeepTime = 0;
+
+        function playBeep() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const now = Date.now();
+            if (now - lastBeepTime < 1000) return; // Limit beep to once per second
+            lastBeepTime = now;
+
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.type = 'square'; // Warning sound profile
+            oscillator.frequency.value = 880; // Pitch
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Set volume
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5);
+        }
+
+        // Browsers block audio until there is user interaction on the page.
+        document.body.addEventListener('click', () => {
+             if (audioCtx.state === 'suspended') {
+                 audioCtx.resume();
+             }
+        }, { once: true });
+
+        setInterval(() => {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    const popup = document.getElementById('warning-popup');
+                    // If the Python server detects the smoking gesture, show warning and beep
+                    if(data.smoking) {
+                        popup.style.display = 'block';
+                        playBeep(); // Trigger the beep!
+                    } else {
+                        popup.style.display = 'none';
+                    }
+                })
+                .catch(err => console.error("Error fetching status:", err));
+        }, 500); // Check every half-second
+    </script>
+</body>
+</html>
